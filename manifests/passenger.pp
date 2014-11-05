@@ -3,14 +3,14 @@
 # This class installs and configures the puppetdb terminus pacakge
 #
 # Parameters:
-#   ['generate_ssl_certs']       - Generate ssl certs (false to disable)
-#   ['puppet_passenger_port']    - The port for the virtual host
-#   ['puppet_docroot']           - Apache documnet root
-#   ['apache_serveradmin']       - The apache server admin
-#   ['puppet_conf']              - The puppet config dir
-#   ['puppet_ssldir']            - The pupet ssl dir
-#   ['certname']                 - The puppet certname
-#   [conf_dir]                   - The configuration directory of the puppet install
+#   ['puppet_proxy_port']   - The port for the virtual host
+#   ['generate_ssl_certs']  - Generate ssl certs (false to disable)
+#   ['puppet_docroot']      - Apache documnet root
+#   ['apache_serveradmin']  - The apache server admin
+#   ['puppet_conf']         - The puppet config dir
+#   ['puppet_ssldir']       - The pupet ssl dir
+#   ['certname']            - The puppet certname
+#   [conf_dir]              - The configuration directory of the puppet install
 #
 # Actions:
 # - Configures apache and passenger for puppet master use.
@@ -22,18 +22,18 @@
 #
 # Sample Usage:
 #   class { 'puppet::passenger':
-#           puppet_passenger_port  => 8140,
-#           puppet_docroot         => '/etc/puppet/docroot',
-#           apache_serveradmin     => 'wibble',
-#           puppet_conf            => '/etc/puppet/puppet.conf',
-#           puppet_ssldir          => '/var/lib/puppet/ssl',
-#           certname               => 'puppet.example.com',
-#           conf_dir               => '/etc/puppet',
+#           puppet_proxy_port   => 8140,
+#           puppet_docroot      => '/etc/puppet/docroot',
+#           apache_serveradmin  => 'wibble',
+#           puppet_conf         => '/etc/puppet/puppet.conf',
+#           puppet_ssldir       => '/var/lib/puppet/ssl',
+#           certname            => 'puppet.example.com',
+#           conf_dir            => '/etc/puppet',
 #   }
 #
 class puppet::passenger(
   $generate_ssl_certs = true,
-  $puppet_passenger_port,
+  $puppet_proxy_port,
   $puppet_passenger_tempdir = false,
   $puppet_docroot,
   $apache_serveradmin,
@@ -110,7 +110,7 @@ class puppet::passenger(
   }
 
   apache::vhost { "puppet-${certname}":
-    port                 => $puppet_passenger_port,
+    port                 => $puppet_proxy_port,
     priority             => '40',
     docroot              => $puppet_docroot,
     serveradmin          => $apache_serveradmin,
@@ -181,3 +181,4 @@ class puppet::passenger(
     require => File[$puppet_conf],
   }
 }
+

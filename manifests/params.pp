@@ -23,7 +23,8 @@ class puppet::params {
   $manifest                         = '/etc/puppet/manifests/site.pp'
   $hiera_config                     = '/etc/puppet/hiera.yaml'
   $puppet_docroot                   = '/etc/puppet/rack/public/'
-  $puppet_passenger_port            = '8140'
+  $puppet_proxy_port                = '8140'
+  $puppet_passenger_tempdir         = '/var/run/rubygem-passenger'
   $puppet_server_port               = '8140'
   $puppet_agent_enabled             = true
   $apache_serveradmin               = 'root'
@@ -34,6 +35,15 @@ class puppet::params {
   $puppet_run_interval              = 30
   $classfile                        = '$statedir/classes.txt'
   $package_provider                 = undef # falls back to system default
+  $listen_address                   = '*'
+  $default_webserver                = 'httpd'
+  $disable_ssl                      = undef
+  $backup_upstream                  = []
+  $unicorn_package                  = undef
+  $unicorn_path                     = '/usr/local/bin/unicorn'
+  $disable_master                   = false
+  $upstream                         = []
+  $backend_process_number           = $::processorcount
 
   # Only used when environments == directory
   $environmentpath                  = "${confdir}/environments"
@@ -89,6 +99,17 @@ class puppet::params {
       $puppet_conf                  = '/etc/puppet/puppet.conf'
       $puppet_vardir                = '/var/lib/puppet'
       $puppet_ssldir                = '/etc/puppet/ssl'
+    }
+    'Archlinux': {
+      $puppet_master_package        = 'puppet'
+      $puppet_agent_service         = 'puppet.service'
+      $puppet_agent_package         = 'puppet'
+      $puppet_conf                  = '/etc/puppet/puppet.conf'
+      $puppet_vardir                = '/var/lib/puppet'
+      $puppet_ssldir                = '/var/lib/puppet/ssl'
+      $passenger_package            = 'passenger'
+      $rack_package                 = 'ruby-rack'
+      $ruby_dev                     = 'ruby'
     }
     default: {
       err('The Puppet module does not support your os')

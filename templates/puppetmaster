@@ -1,0 +1,104 @@
+# define the new unicorn backend
+upstream puppetmaster_unicorn {
+  <% unless @disable_master -%>
+  server unix:/var/run/puppet/puppetmaster_unicorn.sock fail_timeout=5;
+  <% end -%>
+  <% @upstream.each do |server| -%>
+  server <%= server %>;
+  <% end -%>
+  <% @backup_upstream.each do |server| -%>
+  server <%= server %> backup;
+  <% end -%>
+}
+
+# define our CA server
+upstream puppetca {
+  server unix:/var/run/puppet/puppetmaster_unicorn.sock;
+}
+
+# define a custom log level for cache stats
+log_format custom-cache '$remote_addr - $remote_user [$time_local]  '
+                '"$request" $status $body_bytes_sent '
+                '"$http_referer" "$http_user_agent" nocache:$no_cache';
+
+# define our cache
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=microcache:5m max_size=1000m;
+
+# define our proxy
+server {
+  <% unless @disable_ssl -%>
+  ssl on;
+  listen <%= @listen_address %>:<%= @puppet_proxy_port %> ssl;
+  ssl_certificate /var/lib/puppet/ssl/certs/<%= @fqdn %>.pem;
+  ssl_certificate_key /var/lib/puppet/ssl/private_keys/<%= @fqdn %>.pem;
+  ssl_verify_client optional;
+  ssl_client_certificate /var/lib/puppet/ssl/ca/ca_crt.pem;
+  ssl_protocols TLSv1.2;
+  ssl_ciphers 'EDH+CAMELLIA:EDH+aRSA:EECDH+aRSA+AESGCM:EECDH+aRSA+SHA384:EECDH+aRSA+SHA256:EECDH:+CAMELLIA256:+AES256:+CAMELLIA128:+AES128:+SSLv3:!aNULL:!eNULL:!LOW:!3DES:!MD5:!EXP:!PSK:!DSS:!RC4:!SEED:!ECDSA:CAMELLIA256-SHA:AES256-SHA:CAMELLIA128-SHA:AES128-SHA';
+  ssl_session_cache shared:SSL:100m;
+  ssl_session_tickets on;
+  proxy_set_header    Host            $host;
+  proxy_set_header    X-Real-IP       $remote_addr;
+  proxy_set_header    X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header    X-Scheme        $scheme;
+  proxy_set_header    X-Client-Verify $ssl_client_verify;
+  proxy_set_header    X-Client-DN     $ssl_client_s_dn;
+  proxy_set_header    X-SSL-Subject   $ssl_client_s_dn;
+  proxy_set_header    X-SSL-Issuer    $ssl_client_i_dn;
+  <% else -%>
+  listen <%= @listen_address %>:<%= @puppet_proxy_port %>;
+  <% end -%>
+  root /var/empty;
+  location / { 
+    proxy_pass http://puppetmaster_unicorn;
+    proxy_redirect off;
+    # Setup var defaults
+    set $no_cache ""; 
+
+    # If non GET/HEAD, don't cache & mark user as uncacheable for 1 second via cookie
+    if ($request_method !~ ^(GET|HEAD)$) {
+        set $no_cache "1";
+    }   
+
+    # Drop no cache cookie if need be
+    # (for some reason, add_header fails if included in prior if-block)
+    if ($no_cache = "1") {
+        add_header Set-Cookie "_mcnc=1; Max-Age=2; Path=/";    
+        add_header X-Microcachable "0";
+    }   
+
+    # Bypass cache if no-cache cookie is set
+    if ($http_cookie ~* "_mcnc") {
+        set $no_cache "1";
+    }   
+
+    # Bypass cache if flag is set
+    proxy_no_cache $no_cache;
+    proxy_cache_bypass $no_cache;
+    # Set cache zone
+    proxy_cache microcache;
+
+    # Set cache key to include identifying components
+    proxy_cache_key $scheme$host$request_method$request_uri;
+
+    # Only cache valid HTTP 200 responses for 1 second
+    proxy_cache_valid 200 1s; 
+
+    # Serve from cache if currently refreshing
+    proxy_cache_use_stale updating;
+
+    # Set files larger than 1M to stream rather than cache
+    proxy_max_temp_file_size 1M; 
+
+    # activate our logging
+    access_log  /var/log/nginx/puppetmaster-microcache.log custom-cache;
+  }
+  location ~ ^/([^/]+/certificate.*)$ {
+    proxy_pass http://puppetca;
+    proxy_redirect off;
+  }
+  access_log /var/log/nginx/puppetmaster-access.log;
+  error_log  /var/log/nginx/puppetmaster-error.log;
+}
+
+

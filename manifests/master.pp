@@ -22,7 +22,8 @@
 #  ['puppet_ssldir']            - Puppet sll directory
 #  ['puppet_docroot']           - Doc root to be configured in apache vhost
 #  ['puppet_vardir']            - Vardir used by puppet
-#  ['puppet_passenger_port']    - Port to configure passenger on default 8140
+#  ['puppet_proxy_port']        - Port to configure the proxy on - default 8140
+#  ['puppet_conf']              - Path to the puppet main/agent/master config
 #  ['puppet_master_package']    - Puppet master package
 #  ['puppet_master_service']    - Puppet master service
 #  ['version']                  - Version of the puppet master package to install
@@ -37,6 +38,15 @@
 #  ['always_cache_features']    - if false (default), always try to load a feature even if a previous load failed
 #  ['serialization_format']     - defaults to undef, otherwise it sets the preferred_serialization_format param (currently only msgpack is supported)
 #  ['serialization_package']    - defaults to undef, if provided, we install this package, otherwise we fall back to the gem from 'serialization_format'
+#  ['webserver']                - install 'nginx' (with unicorn) or 'httpd' (with passenger) - httpd is default
+#  ['listen_address']           - IP for binding the webserver, defaults to *
+#  ['disable_ssl']              - Disables SSL on the webserver. usefull if you use this master behind a loadbalancer. currently only supported by nginx, defaults to undef
+#  ['backup_upstream']          - specify another puppet master as fallback. currently only supported by nginx
+#  ['unicorn_package']          - package name of a unicorn rpm. if provided we install it, otherwise we built it via gem/gcc
+#  ['unicorn_path']             - custom path to the unicorn binary
+#  ['disable_master']           - this disables the normal master, the server will only act as a CA, currently only supported by nginx
+#  ['upstream']                 - define additional masters reachable via tcp as an array, currently only supported by nginx
+#  ['backend_process_number']   - number of processes to start on the backebd webserver (unicorn/passenger), currently only supported by unicorn
 #
 # Requires:
 #
@@ -77,7 +87,7 @@ class puppet::master (
   $puppet_ssldir                = $::puppet::params::puppet_ssldir,
   $puppet_docroot               = $::puppet::params::puppet_docroot,
   $puppet_vardir                = $::puppet::params::puppet_vardir,
-  $puppet_passenger_port        = $::puppet::params::puppet_passenger_port,
+  $puppet_proxy_port            = $::puppet::params::puppet_proxy_port,
   $puppet_passenger_tempdir     = false,
   $puppet_passenger_cfg_addon   = '',
   $puppet_master_package        = $::puppet::params::puppet_master_package,
@@ -99,7 +109,17 @@ class puppet::master (
   $passenger_max_requests       = 10000,
   $passenger_stat_throttle_rate = 30,
   $serialization_format         = undef,
-  $serialization_package        = undef,
+  $serialization_package        = undef, 
+  $webserver                    = $::puppet::params::default_webserver,
+  $listen_address               = $::puppet::params::listen_address,
+  $disable_ssl                  = $::puppet::params::disable_ssl,
+  $backup_upstream              = $::puppet::params::backup_upstream,
+  $unicorn_path                 = $::puppet::params::unicorn_path,
+  $unicorn_package              = $::puppet::params::unicorn_package,
+  $disable_master               = $::puppet::params::disable_master,
+  $upstream                     = $::puppet::params::upstream,
+  $backend_process_number       = $::puppet::params::backend_process_number,
+
 ) inherits puppet::params {
 
   anchor { 'puppet::master::begin': }
@@ -135,28 +155,49 @@ class puppet::master (
       ensure         => $version,
     }
   }
+  case $webserver {
+    nginx: {
+      Anchor['puppet::master::begin'] ->
+      class {'puppet::unicorn':
+        certname               => $certname,
+        puppet_conf            => $puppet_conf,
+        puppet_ssldir          => $puppet_ssldir,
+        dns_alt_names          => $dns_alt_names,
+        listen_address         => $listen_address,
+        puppet_proxy_port      => $puppet_proxy_port,
+        disable_ssl            => $disable_ssl,
+        backup_upstream        => $backup_upstream,
+        unicorn_package        => $unicorn_package,
+        unicorn_path           => $unicorn_path,
+        disable_master         => $disable_master,
+        upstream               => $upstream,
+        backend_process_number => $backend_process_number,
+      } ->
+      Anchor['puppet::master::end']
+    }
+    default: {
+      Anchor['puppet::master::begin'] ->
+      class {'puppet::passenger':
+        puppet_proxy_port             => $puppet_proxy_port,
+        puppet_docroot                => $puppet_docroot,
+        apache_serveradmin            => $apache_serveradmin,
+        puppet_conf                   => $::puppet::params::puppet_conf,
+        puppet_ssldir                 => $puppet_ssldir,
+        certname                      => $certname,
+        conf_dir                      => $::puppet::params::confdir,
+        dns_alt_names                 => join($dns_alt_names,','),
+        generate_ssl_certs            => $generate_ssl_certs,
+        puppet_passenger_tempdir      => $puppet_passenger_tempdir,
+        config_addon                  => $puppet_passenger_cfg_addon,
+        passenger_max_pool_size       => $passenger_max_pool_size,
+        passenger_high_performance    => $passenger_high_performance,
+        passenger_max_requests        => $passenger_max_requests,
+        passenger_stat_throttle_rate  => $passenger_stat_throttle_rate,
 
-  Anchor['puppet::master::begin'] ->
-  class {'puppet::passenger':
-    puppet_passenger_port        => $puppet_passenger_port,
-    puppet_docroot               => $puppet_docroot,
-    apache_serveradmin           => $apache_serveradmin,
-    puppet_conf                  => $::puppet::params::puppet_conf,
-    puppet_ssldir                => $puppet_ssldir,
-    certname                     => $certname,
-    conf_dir                     => $::puppet::params::confdir,
-    dns_alt_names                => join($dns_alt_names,','),
-    generate_ssl_certs           => $generate_ssl_certs,
-    puppet_passenger_tempdir     => $puppet_passenger_tempdir,
-    config_addon                 => $puppet_passenger_cfg_addon,
-    passenger_max_pool_size      => $passenger_max_pool_size,
-    passenger_high_performance   => $passenger_high_performance,
-    passenger_max_requests       => $passenger_max_requests,
-    passenger_stat_throttle_rate => $passenger_stat_throttle_rate,
-
-  } ->
-  Anchor['puppet::master::end']
-
+      } ->
+      Anchor['puppet::master::end']
+    }
+  }
   service { $puppet_master_service:
     ensure  => stopped,
     enable  => false,
@@ -170,12 +211,12 @@ class puppet::master (
       require => File[$::puppet::params::confdir],
       owner   => $::puppet::params::puppet_user,
       group   => $::puppet::params::puppet_group,
-      notify  => Service['httpd'],
+      notify  => Service[$webserver],
     }
   }
   else {
     File<| title == $::puppet::params::puppet_conf |> {
-      notify  => Service['httpd'],
+      notify  => Service[$webserver],
     }
   }
 
@@ -186,12 +227,12 @@ class puppet::master (
       require => Package[$puppet_master_package],
       owner   => $::puppet::params::puppet_user,
       group   => $::puppet::params::puppet_group,
-      notify  => Service['httpd'],
+      notify  => Service[$webserver],
     }
   }
   else {
     File<| title == $::puppet::params::confdir |> {
-      notify  +> Service['httpd'],
+      notify  +> Service[$webserver],
       require +> Package[$puppet_master_package],
     }
   }
@@ -200,7 +241,7 @@ class puppet::master (
     ensure  => directory,
     owner   => $::puppet::params::puppet_user,
     group   => $::puppet::params::puppet_group,
-    notify  => Service['httpd'],
+    notify  => Service[$webserver],
     require => Package[$puppet_master_package]
   }
 
@@ -209,7 +250,7 @@ class puppet::master (
     class { 'puppet::storeconfigs':
       dbserver                   => $storeconfigs_dbserver,
       dbport                     => $storeconfigs_dbport,
-      puppet_service             => Service['httpd'],
+      puppet_service             => Service[$webserver],
       puppet_confdir             => $::puppet::params::confdir,
       puppet_conf                => $::puppet::params::puppet_conf,
       puppet_master_package      => $puppet_master_package,
@@ -223,7 +264,7 @@ class puppet::master (
   Ini_setting {
       path    => $::puppet::params::puppet_conf,
       require => File[$::puppet::params::puppet_conf],
-      notify  => Service['httpd'],
+      notify  => Service[$webserver],
       section => 'master',
   }
 
@@ -332,7 +373,37 @@ class puppet::master (
     setting => 'digest_algorithm',
     value   => $digest_algorithm,
   }
-
+  if $serialization_format != undef {
+    if $serialization_package != undef {
+      package { $serialization_package:
+        ensure  => latest,
+      }
+    } else {
+      if $serialization_format == 'msgpack' {
+        unless defined(Package[$::puppet::params::ruby_dev]) {
+          package {$::puppet::params::ruby_dev:
+            ensure  => latest,
+          }
+        }
+        unless defined(Package['gcc']) {
+          package {'gcc':
+            ensure  => latest,
+          }
+        }
+        unless defined(Package['msgpack']) {
+          package {'msgpack':
+            ensure   => latest,
+            provider => gem,
+            require  => Package[$::puppet::params::ruby_dev, 'gcc'],
+          }
+        }
+      }
+    }
+    ini_setting {'puppetagentserializationformatmaster':
+      setting => 'preferred_serialization_format',
+      value   => $serialization_format,
+    }
+  }
   if $strict_variables != undef {
     validate_bool(str2bool($strict_variables))
     ini_setting {'puppetmasterstrictvariables':
@@ -346,37 +417,6 @@ class puppet::master (
     ensure  => present,
     setting => 'always_cache_features',
     value   => $always_cache_features,
-  }
-  if $serialization_format != undef {
-    if $serialization_package != undef {
-      package { $serialization_package:
-        ensure  => latest,
-      }
-    } else {
-      if $serialization_format == 'msgpack' {
-        unless defined(Package[$::puppet::params::ruby_dev]) {
-          package {$::puppet::params::ruby_dev:
-            ensure  => 'latest',
-          }
-        }
-        unless defined(Package['gcc']) {
-          package {'gcc':
-            ensure  => 'latest',
-          }
-        }
-        unless defined(Package['msgpack']) {
-          package {'msgpack':
-            ensure   => 'latest',
-            provider => 'gem',
-            require  => Package[$::puppet::params::ruby_dev, 'gcc'],
-          }
-        }
-      }
-    }
-    ini_setting {'puppetagentserializationformatmaster':
-      setting => 'preferred_serialization_format',
-      value   => $serialization_format,
-    }
   }
   anchor { 'puppet::master::end': }
 }
