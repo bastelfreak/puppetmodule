@@ -57,7 +57,7 @@ class puppet::repo::puppetlabs(
     }
     ini_setting {'puppetlabs-products-name':
       section => 'puppetlabs-products',
-      value   => "Puppet Labs Products ${ostype} ${operatingsystemmajrelease} - \$basearch",
+      value   => "Puppet Labs Products ${ostype} ${::operatingsystemmajrelease} - \$basearch",
       setting => 'name',
     }
     ini_setting {'puppetlabs-products-gpgkey':
@@ -72,7 +72,7 @@ class puppet::repo::puppetlabs(
     }     
     ini_setting {'puppetlabs-products-baseurl':
       section => 'puppetlabs-products',
-      value   => "${mirror}/packages/yum/${ostype}/${operatingsystemmajrelease}/products/\$basearch",
+      value   => "${mirror}/packages/yum/${ostype}/${::operatingsystemmajrelease}/products/\$basearch",
       setting => 'baseurl',
     }     
     ini_setting {'puppetlabs-products-priority':
@@ -87,7 +87,7 @@ class puppet::repo::puppetlabs(
     }
     ini_setting {'puppetlabs-dependencies-name':
       section => 'puppetlabs-deps',
-      value   => "Puppet Labs Dependencies ${ostype} ${operatingsystemmajrelease} - \$basearch",
+      value   => "Puppet Labs Dependencies ${ostype} ${::operatingsystemmajrelease} - \$basearch",
       setting => 'name',
     }
     ini_setting {'puppetlabs-dependencies-gpgkey':
@@ -102,7 +102,7 @@ class puppet::repo::puppetlabs(
     }     
     ini_setting {'puppetlabs-dependencies-baseurl':
       section => 'puppetlabs-deps',
-      value   => "${mirror}/packages/yum/${ostype}/${operatingsystemmajrelease}/dependencies/\$basearch",
+      value   => "${mirror}/packages/yum/${ostype}/${::operatingsystemmajrelease}/dependencies/\$basearch",
       setting => 'baseurl',
     }     
     ini_setting {'puppetlabs-dependencies-priority':
