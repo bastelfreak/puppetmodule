@@ -64,22 +64,22 @@ class puppet::repo::puppetlabs(
       section => 'puppetlabs-products',
       value   => "file://${gpg_destination}",
       setting => 'gpgkey',
-    }    
+    }
     ini_setting {'puppetlabs-products-enabled':
       section => 'puppetlabs-products',
       value   => '1',
       setting => 'enabled',
-    }     
+    }
     ini_setting {'puppetlabs-products-baseurl':
       section => 'puppetlabs-products',
       value   => "${mirror}/packages/yum/${ostype}/${::operatingsystemmajrelease}/products/\$basearch",
       setting => 'baseurl',
-    }     
+    }
     ini_setting {'puppetlabs-products-priority':
       section => 'puppetlabs-products',
       value   => $priority,
       setting => 'priority',
-    }     
+    }
     ini_setting {'puppetlabs-products-gpgcheck':
       section => 'puppetlabs-products',
       value   => '1',
@@ -94,28 +94,27 @@ class puppet::repo::puppetlabs(
       section => 'puppetlabs-deps',
       value   => "file://${gpg_destination}",
       setting => 'gpgkey',
-    }    
+    }
     ini_setting {'puppetlabs-dependencies-enabled':
       section => 'puppetlabs-deps',
       value   => '1',
       setting => 'enabled',
-    }     
+    }
     ini_setting {'puppetlabs-dependencies-baseurl':
       section => 'puppetlabs-deps',
       value   => "${mirror}/packages/yum/${ostype}/${::operatingsystemmajrelease}/dependencies/\$basearch",
       setting => 'baseurl',
-    }     
+    }
     ini_setting {'puppetlabs-dependencies-priority':
       section => 'puppetlabs-deps',
       value   => $priority,
       setting => 'priority',
-    }     
+    }
     ini_setting {'puppetlabs-dependencies-gpgcheck':
       section => 'puppetlabs-deps',
       value   => '1',
       setting => 'gpgcheck',
-    }     
-      
+    }
   } else {
     fail("Unsupported osfamily ${::osfamily}")
   }
