@@ -49,6 +49,7 @@ class puppet::params {
       $puppet_ssldir                = '/var/lib/puppet/ssl'
       $passenger_package            = 'mod_passenger'
       $rack_package                 = 'rubygem-rack'
+      $mirror                       = 'http://yum.puppetlabs.com'
     }
     'Suse': {
       $puppet_master_package        = 'puppet-server'
@@ -72,6 +73,7 @@ class puppet::params {
       $puppet_ssldir                = '/var/lib/puppet/ssl'
       $passenger_package            = 'libapache2-mod-passenger'
       $rack_package                 = 'librack-ruby'
+      $mirror                       = 'http://apt.puppetlabs.com'
     }
     'FreeBSD': {
       $puppet_agent_service         = 'puppet'
