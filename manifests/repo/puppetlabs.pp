@@ -1,7 +1,10 @@
 #
-# This module is used to setup the puppetlabs repos
+# This class is used to setup the puppetlabs repos
 # that can be used to install puppet. we use ini_setting instead of
 # yumrepo because of a bug: https://tickets.puppetlabs.com/browse/PUP-2782
+#
+# this class creates the repositorys as the rpms delivered by puppetlabs
+# at http://yum.puppetlabs.com/puppetlabs-release-el-6.noarch.rpm
 #
 # Class: puppet::repo::puppetlabs
 #
