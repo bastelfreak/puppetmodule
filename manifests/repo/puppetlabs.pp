@@ -40,12 +40,23 @@ class puppet::repo::puppetlabs(
     apt::source { 'puppetlabs':      repos => 'main' }
     apt::source { 'puppetlabs-deps': repos => 'dependencies' }
   } elsif $::osfamily == 'Redhat' {
-    if $::operatingsystem == 'Fedora' {
-      $ostype='fedora'
-      $prefix='f'
-    } else {
-      $ostype='el'
-      $prefix=''
+    case $::operatingsystem {
+      Fedora: {
+        $ostype   = 'fedora'
+        $prefix   = 'f'
+        $release  = $::operatingsystemmajrelease
+      } 
+      PSBM: {
+        $ostype   = 'el'
+        $prefix   = ''
+        $release  = '6'
+      }
+      # works on CentOS and CloudLinux
+      default: {
+        $ostype   = 'el'
+        $prefix   = ''
+        $release  = $::operatingsystemmajrelease
+      }
     }
     $gpg_destination = '/etc/pki/rpm-gpg/RPM-GPG-KEY-puppetlabs'
     include wget
@@ -75,7 +86,7 @@ class puppet::repo::puppetlabs(
     }
     ini_setting {'puppetlabs-products-baseurl':
       section => 'puppetlabs-products',
-      value   => "${mirror}/packages/yum/${ostype}/${::operatingsystemmajrelease}/products/\$basearch",
+      value   => "${mirror}/packages/yum/${ostype}/${prefix}${::operatingsystemmajrelease}/products/\$basearch",
       setting => 'baseurl',
     }
     ini_setting {'puppetlabs-products-priority':
@@ -105,7 +116,7 @@ class puppet::repo::puppetlabs(
     }
     ini_setting {'puppetlabs-dependencies-baseurl':
       section => 'puppetlabs-deps',
-      value   => "${mirror}/packages/yum/${ostype}/${::operatingsystemmajrelease}/dependencies/\$basearch",
+      value   => "${mirror}/packages/yum/${ostype}/${prefix}${::operatingsystemmajrelease}/dependencies/\$basearch",
       setting => 'baseurl',
     }
     ini_setting {'puppetlabs-dependencies-priority':
