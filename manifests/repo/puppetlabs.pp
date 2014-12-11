@@ -41,7 +41,6 @@ class puppet::repo::puppetlabs(
     apt::source { 'puppetlabs-deps': repos => 'dependencies' }
   } elsif $::osfamily == 'Redhat' {
     case $::operatingsystem {
-<<<<<<< HEAD
       'Fedora': {
         $ostype   = 'fedora'
         $prefix   = 'f' 
