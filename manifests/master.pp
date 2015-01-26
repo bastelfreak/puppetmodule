@@ -301,8 +301,8 @@ class puppet::master (
   }
 
   ini_setting {'puppetmasterdigestalgorithm':
-   setting => 'digest_algorithm',
-   value   => $digest_algorithm,
+    setting => 'digest_algorithm',
+    value   => $digest_algorithm,
   }
 
   ini_setting {'puppetmasterca':
