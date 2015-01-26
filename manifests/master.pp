@@ -33,12 +33,13 @@
 #  ['dns_alt_names']            - Comma separated list of alternative DNS names
 #  ['digest_algorithm']         - The algorithm to use for file digests.
 #  ['generate_ssl_certs']       - Generate ssl certs (false to disable)
+#  ['use_ca']                   - Use the built in CA, defaults to true
 #
 # Requires:
 #
 #  - inifile
 #  - Class['puppet::params']
-#  - Class[puppet::passenger]
+#  - Class['puppet::passenger']
 #  - Class['puppet::storeconfigs']
 #
 # Sample Usage:
@@ -49,8 +50,8 @@
 #  ]
 #
 #  class { "puppet::master":
-#    modulepath             => inline_template("<%= modulepath.join(':') %>"),
-#    storeconfigs          => 'true',
+#    modulepath   => inline_template("<%= modulepath.join(':') %>"),
+#    storeconfigs => 'true',
 #  }
 #
 class puppet::master (
@@ -87,6 +88,7 @@ class puppet::master (
   $digest_algorithm           = $::puppet::params::digest_algorithm,
   $generate_ssl_certs         = true,
   $puppetdb_version           = 'present',
+  $use_ca                     = true,
 ) inherits puppet::params {
 
   anchor { 'puppet::master::begin': }
@@ -206,6 +208,7 @@ class puppet::master (
       require => File[$::puppet::params::puppet_conf],
       notify  => Service['httpd'],
       section => 'master',
+      ensure  => present,
   }
 
   case $environments {
@@ -239,79 +242,72 @@ class puppet::master (
 
   if $external_nodes != undef {
     ini_setting {'puppetmasterencconfig':
-      ensure  => present,
       setting => 'external_nodes',
       value   => $external_nodes,
     }
 
     ini_setting {'puppetmasternodeterminus':
-      ensure  => present,
       setting => 'node_terminus',
       value   => 'exec'
     }
   }
   elsif $node_terminus != undef {
     ini_setting {'puppetmasternodeterminus':
-      ensure  => present,
       setting => 'node_terminus',
       value   => $node_terminus
     }
   }
 
   ini_setting {'puppetmasterhieraconfig':
-    ensure  => present,
     setting => 'hiera_config',
     value   => $hiera_config,
   }
 
   ini_setting {'puppetmasterautosign':
-    ensure  => present,
     setting => 'autosign',
     value   => $autosign,
   }
 
   ini_setting {'puppetmastercertname':
-    ensure  => present,
     setting => 'certname',
     value   => $certname,
   }
 
   ini_setting {'puppetmasterreports':
-    ensure  => present,
     setting => 'reports',
     value   => $reports,
   }
 
   ini_setting {'puppetmasterpluginsync':
-    ensure  => present,
     setting => 'pluginsync',
     value   => $pluginsync,
   }
 
   ini_setting {'puppetmasterparser':
-    ensure  => present,
     setting => 'parser',
     value   => $parser,
   }
 
   if $reporturl != undef {
     ini_setting {'puppetmasterreport':
-      ensure  => present,
       setting => 'reporturl',
       value   => $reporturl,
     }
   }
 
   ini_setting {'puppetmasterdnsaltnames':
-      ensure  => present,
-      setting => 'dns_alt_names',
-      value   => join($dns_alt_names, ','),
+    setting => 'dns_alt_names',
+    value   => join($dns_alt_names, ','),
   }
 
   ini_setting {'puppetmasterdigestalgorithm':
-      ensure  => present,
-      setting => 'digest_algorithm',
-      value   => $digest_algorithm,
+   setting => 'digest_algorithm',
+   value   => $digest_algorithm,
+  }
+
+  ini_setting {'puppetmasterca':
+    setting => 'ca',
+    value   => $use_ca,
   }
 
   anchor { 'puppet::master::end': }
