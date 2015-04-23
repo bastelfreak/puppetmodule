@@ -33,7 +33,7 @@ class puppet::params {
   $digest_algorithm                 = 'md5'
 
   # Only used when environments == directory
-  $environmentpath                  = '$confdir/environments'
+  $environmentpath                  = "${confdir}/environments"
 
   case $::osfamily {
     'RedHat': {

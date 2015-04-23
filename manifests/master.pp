@@ -33,6 +33,9 @@
 #  ['dns_alt_names']            - Comma separated list of alternative DNS names
 #  ['digest_algorithm']         - The algorithm to use for file digests.
 #  ['webserver']                - install 'nginx' (with unicorn) or 'httpd' (with passanger)
+#  ['generate_ssl_certs']       - Generate ssl certs (false to disable)
+#  ['strict_variables']         - Makes the parser raise errors when referencing unknown variables
+#  ['always_cache_features']    - if false (default), always try to load a feature even if a previous load failed
 #
 # Requires:
 #
@@ -74,6 +77,8 @@ class puppet::master (
   $puppet_docroot             = $::puppet::params::puppet_docroot,
   $puppet_vardir              = $::puppet::params::puppet_vardir,
   $puppet_passenger_port      = $::puppet::params::puppet_passenger_port,
+  $puppet_passenger_tempdir   = false,
+  $puppet_passenger_cfg_addon = '',
   $puppet_master_package      = $::puppet::params::puppet_master_package,
   $puppet_master_service      = $::puppet::params::puppet_master_service,
   $version                    = 'present',
@@ -85,6 +90,11 @@ class puppet::master (
   $dns_alt_names              = ['puppet'],
   $digest_algorithm           = $::puppet::params::digest_algorithm,
   $webserver                  = 'httpd',
+  $generate_ssl_certs         = true,
+  $strict_variables           = undef,
+  $puppetdb_version           = 'present',
+  $always_cache_features      = false,
+
 ) inherits puppet::params {
 
   anchor { 'puppet::master::begin': }
@@ -120,31 +130,26 @@ class puppet::master (
       ensure         => $version,
     }
   }
-  case $webserver {
-    httpd: {
-      Anchor['puppet::master::begin'] ->
-      class {'puppet::passenger':
-        puppet_passenger_port  => $puppet_passenger_port,
-        puppet_docroot         => $puppet_docroot,
-        apache_serveradmin     => $apache_serveradmin,
-        puppet_conf            => $::puppet::params::puppet_conf,
-        puppet_ssldir          => $puppet_ssldir,
-        certname               => $certname,
-        conf_dir               => $::puppet::params::confdir,
-        dns_alt_names          => join($dns_alt_names,','),
-      } ->
-      Anchor['puppet::master::end']
-    }
-    nginx: {
-      Anchor['puppet::master::begin'] ->
-      class {'puppet::unicorn':} ->
-      Anchor['puppet::master::end']
-    }
-  }
+  Anchor['puppet::master::begin'] ->
+  class {'puppet::passenger':
+    puppet_passenger_port    => $puppet_passenger_port,
+    puppet_docroot           => $puppet_docroot,
+    apache_serveradmin       => $apache_serveradmin,
+    puppet_conf              => $::puppet::params::puppet_conf,
+    puppet_ssldir            => $puppet_ssldir,
+    certname                 => $certname,
+    conf_dir                 => $::puppet::params::confdir,
+    dns_alt_names            => join($dns_alt_names,','),
+    generate_ssl_certs       => $generate_ssl_certs,
+    puppet_passenger_tempdir => $puppet_passenger_tempdir,
+    config_addon             => $puppet_passenger_cfg_addon,
+  } ->
+  Anchor['puppet::master::end']
+
   service { $puppet_master_service:
-    ensure    => stopped,
-    enable    => false,
-    require   => File[$::puppet::params::puppet_conf],
+    ensure  => stopped,
+    enable  => false,
+    require => File[$::puppet::params::puppet_conf],
   }
 
   if ! defined(File[$::puppet::params::puppet_conf]){
@@ -181,11 +186,11 @@ class puppet::master (
   }
 
   file { $puppet_vardir:
-    ensure       => directory,
-    owner        => $::puppet::params::puppet_user,
-    group        => $::puppet::params::puppet_group,
-    notify       => Service[$webserver],
-    require      => Package[$puppet_master_package]
+    ensure  => directory,
+    owner   => $::puppet::params::puppet_user,
+    group   => $::puppet::params::puppet_group,
+    notify  => Service['httpd'],
+    require => Package[$puppet_master_package]
   }
 
   if $storeconfigs {
@@ -193,12 +198,13 @@ class puppet::master (
     class { 'puppet::storeconfigs':
       dbserver                   => $storeconfigs_dbserver,
       dbport                     => $storeconfigs_dbport,
-      puppet_service             => Service[$webserver],
-      puppet_confdir             => $::puppet::params::puppet_confdir,
+      puppet_service             => Service['httpd'],
+      puppet_confdir             => $::puppet::params::confdir,
       puppet_conf                => $::puppet::params::puppet_conf,
       puppet_master_package      => $puppet_master_package,
       puppetdb_startup_timeout   => $puppetdb_startup_timeout,
       puppetdb_strict_validation => $puppetdb_strict_validation,
+      puppetdb_version           => $puppetdb_version,
     } ->
     Anchor['puppet::master::end']
   }
@@ -305,16 +311,31 @@ class puppet::master (
   }
 
   ini_setting {'puppetmasterdnsaltnames':
-      ensure  => present,
-      setting => 'dns_alt_names',
-      value   => join($dns_alt_names, ','),
+    ensure  => present,
+    setting => 'dns_alt_names',
+    value   => join($dns_alt_names, ','),
   }
 
   ini_setting {'puppetmasterdigestalgorithm':
-      ensure  => present,
-      setting => 'digest_algorithm',
-      value   => $digest_algorithm,
+    ensure  => present,
+    setting => 'digest_algorithm',
+    value   => $digest_algorithm,
   }
 
+  if $strict_variables != undef {
+    validate_bool(str2bool($strict_variables))
+    ini_setting {'puppetmasterstrictvariables':
+      ensure  => present,
+      setting => 'strict_variables',
+      value   => $strict_variables,
+    }
+  }
+
+  validate_bool(str2bool($always_cache_features))
+  ini_setting { 'puppetmasteralwayscachefeatures':
+    ensure  => present,
+    setting => 'always_cache_features',
+    value   => $always_cache_features,
+  }
   anchor { 'puppet::master::end': }
 }

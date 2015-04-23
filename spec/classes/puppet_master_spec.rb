@@ -24,7 +24,8 @@ describe 'puppet::master', :type => :class do
                 :certname               => 'test.example.com',
                 :storeconfigs           => 'true',
                 :storeconfigs_dbserver  => 'test.example.com',
-                :dns_alt_names          => ['puppet']
+                :dns_alt_names          => ['puppet'],
+                :strict_variables       => 'true'
 
             }
         end
@@ -156,6 +157,13 @@ describe 'puppet::master', :type => :class do
                 :path    => '/etc/puppet/puppet.conf',
                 :value   => params[:dns_alt_names].join(',')
             )
+            should contain_ini_setting('puppetmasterstrictvariables').with(
+                :ensure  => 'present',
+                :section => 'master',
+                :setting => 'strict_variables',
+                :path    => '/etc/puppet/puppet.conf',
+                :value   => params[:strict_variables]
+            )
             should contain_anchor('puppet::master::begin').with_before(
               ['Class[Puppet::Passenger]', 'Class[Puppet::Storeconfigs]']
             )
@@ -185,7 +193,8 @@ describe 'puppet::master', :type => :class do
                 :certname               => 'test.example.com',
                 :storeconfigs           => 'true',
                 :storeconfigs_dbserver  => 'test.example.com',
-                :dns_alt_names          => ['puppet']
+                :dns_alt_names          => ['puppet'],
+                :strict_variables       => 'true'
 
             }
         end
@@ -315,6 +324,13 @@ describe 'puppet::master', :type => :class do
                 :path    => '/etc/puppet/puppet.conf',
                 :value   => params[:dns_alt_names].join(',')
             )
+            should contain_ini_setting('puppetmasterstrictvariables').with(
+                :ensure  => 'present',
+                :section => 'master',
+                :setting => 'strict_variables',
+                :path    => '/etc/puppet/puppet.conf',
+                :value   => params[:strict_variables]
+            )
             should contain_anchor('puppet::master::begin').with_before(
               ['Class[Puppet::Passenger]', 'Class[Puppet::Storeconfigs]']
             )
@@ -341,7 +357,7 @@ describe 'puppet::master', :type => :class do
                 :section => 'main',
                 :setting => 'environmentpath',
                 :path    => '/etc/puppet/puppet.conf',
-                :value   => '$confdir/environments'
+                :value   => '/etc/puppet/environments'
             )
             should contain_ini_setting('puppetmastermodulepath').with(
                 :ensure  => 'absent',

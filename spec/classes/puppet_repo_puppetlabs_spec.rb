@@ -64,8 +64,8 @@ describe 'puppet::repo::puppetlabs', :type => :class do
     end
     it 'should fail for unsupported os families' do
       expect do
-        subject
-      end.to raise_error(Puppet::Error, /Unsupported osfamily FreeBSD/)
+        should compile.and_raise_error(/Unsupported osfamily FreeBSD/)
+      end
     end
   end
 end

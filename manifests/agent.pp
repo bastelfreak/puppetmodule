@@ -10,6 +10,7 @@
 #   ['version']               - The version of the puppet agent to install
 #   ['puppet_run_style']      - The run style of the agent either 'service', 'cron', 'external' or 'manual'
 #   ['puppet_run_interval']   - The run interval of the puppet agent in minutes, default is 30 minutes
+#   ['puppet_run_command']    - The command that will be executed for puppet agent run
 #   ['user_id']               - The userid of the puppet user
 #   ['group_id']              - The groupid of the puppet group
 #   ['splay']                 - If splay should be enable defaults to false
@@ -26,6 +27,8 @@
 #   ['templatedir']           - Template dir, if unset it will remove the setting.
 #   ['configtimeout']         - How long the client should wait for the configuration to be retrieved before considering it a failure
 #   ['stringify_facts']       - Wether puppet transforms structured facts in strings or no. Defaults to true in puppet < 4, deprecated in puppet >=4 (and will default to false)
+#   ['cron_hour']             - What hour to run if puppet_run_style is cron
+#   ['cron_minute']           - What minute to run if puppet_run_style is cron
 #
 # Actions:
 # - Install and configures the puppet agent
@@ -41,29 +44,44 @@
 #   }
 #
 class puppet::agent(
-  $puppet_server          = $::puppet::params::puppet_server,
-  $puppet_server_port     = $::puppet::params::puppet_server_port,
   $puppet_agent_service   = $::puppet::params::puppet_agent_service,
   $puppet_agent_package   = $::puppet::params::puppet_agent_package,
   $version                = 'present',
   $puppet_run_style       = 'service',
-  $puppet_run_interval    = 30,
+  $puppet_run_command     = '/usr/bin/puppet agent --no-daemonize --onetime --logdest syslog > /dev/null 2>&1',
   $user_id                = undef,
   $group_id               = undef,
-  $splay                  = false,
-  $environment            = 'production',
-  $report                 = true,
-  $pluginsync             = true,
-  $use_srv_records        = false,
+
+  #[main]
+  $templatedir            = undef,
+  $syslogfacility         = undef,
+  $priority               = undef,
+
+  #[agent]
   $srv_domain             = undef,
   $ordering               = undef,
-  $templatedir            = undef,
   $trusted_node_data      = undef,
+  $environment            = 'production',
+  $puppet_server          = $::puppet::params::puppet_server,
+  $use_srv_records        = false,
+  $puppet_run_interval    = 30,
+  $splay                  = false,
+  $puppet_server_port     = $::puppet::params::puppet_server_port,
+  $report                 = true,
+  $pluginsync             = true,
   $listen                 = false,
   $reportserver           = '$server',
   $digest_algorithm       = $::puppet::params::digest_algorithm,
   $configtimeout          = '2m',
   $stringify_facts        = undef,
+  $verbose                = undef,
+  $agent_noop             = undef,
+  $usecacheonfailure      = undef,
+  $certname               = undef,
+  $http_proxy_host        = undef,
+  $http_proxy_port        = undef,
+  $cron_hour              = '*',
+  $cron_minute            = undef,
 ) inherits puppet::params {
 
   if ! defined(User[$::puppet::params::puppet_user]) {
@@ -121,18 +139,21 @@ class puppet::agent(
       $service_ensure = 'stopped'
       $service_enable = false
 
-      # Run puppet as a cron - this saves memory and avoids the whole problem
-      # where puppet locks up for no reason. Also spreads out the run intervals
-      # more uniformly.
-      $time1  =  fqdn_rand($puppet_run_interval)
-      $time2  =  fqdn_rand($puppet_run_interval) + 30
+      # Default to every 30 minutes - random around the clock
+      if $cron_minute == undef {
+        $time1  =  fqdn_rand(30)
+        $time2  =  $time1 + 30
+        $minute = [ $time1, $time2 ]
+      }
+      else {
+        $minute = $cron_minute
+      }
 
       cron { 'puppet-client':
-        command => '/usr/bin/puppet agent --no-daemonize --onetime --logdest syslog > /dev/null 2>&1',
+        command => $puppet_run_command,
         user    => 'root',
-        # run twice an hour, at a random minute in order not to collectively stress the puppetmaster
-        hour    => '*',
-        minute  => [ $time1, $time2 ],
+        hour    => $cron_hour,
+        minute  => $minute,
       }
     }
     # Run Puppet through external tooling, like MCollective
@@ -237,9 +258,9 @@ class puppet::agent(
   }
 
   ini_setting {'puppetagentmaster':
-    ensure   => present,
-    setting  => 'server',
-    value    => $puppet_server,
+    ensure  => present,
+    setting => 'server',
+    value   => $puppet_server,
   }
 
   ini_setting {'puppetagentuse_srv_records':
@@ -317,6 +338,64 @@ class puppet::agent(
       ensure  => present,
       setting => 'stringify_facts',
       value   => $stringify_facts,
+    }
+  }
+  if $verbose != undef {
+    ini_setting {'puppetagentverbose':
+      ensure  => present,
+      setting => 'verbose',
+      value   => $verbose,
+    }
+  }
+  if $agent_noop != undef {
+    ini_setting {'puppetagentnoop':
+      ensure  => present,
+      setting => 'noop',
+      value   => $agent_noop,
+    }
+  }
+  if $usecacheonfailure != undef {
+    ini_setting {'puppetagentusecacheonfailure':
+      ensure  => present,
+      setting => 'usecacheonfailure',
+      value   => $usecacheonfailure,
+    }
+  }
+  if $syslogfacility != undef {
+    ini_setting {'puppetagentsyslogfacility':
+      ensure  => present,
+      setting => 'syslogfacility',
+      value   => $syslogfacility,
+      section => 'main',
+    }
+  }
+  if $certname != undef {
+    ini_setting {'puppetagentcertname':
+      ensure  => present,
+      setting => 'certname',
+      value   => $certname,
+    }
+  }
+  if $priority != undef {
+    ini_setting {'puppetagentpriority':
+      ensure  => present,
+      setting => 'priority',
+      value   => $priority,
+      section => 'main',
+    }
+  }
+  if $http_proxy_host != undef {
+    ini_setting {'puppetagenthttpproxyhost':
+      ensure  => present,
+      setting => 'http_proxy_host',
+      value   => $http_proxy_host,
+    }
+  }
+  if $http_proxy_port != undef {
+    ini_setting {'puppetagenthttpproxyport':
+      ensure  => present,
+      setting => 'http_proxy_port',
+      value   => $http_proxy_port,
     }
   }
 }

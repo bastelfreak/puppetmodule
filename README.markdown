@@ -80,7 +80,7 @@ If you have a working Vagrant setup you can run the rspec-system tests:
     bundle exec rake beaker
 
 To use different base boxes than the default pass the name of the box to
-the rake command with the ```RSPEC_SET``` environment variable (check out
+the rake command with the ```BEAKER_set``` environment variable (check out
 .nodelist.yml for box names):
 
     BEAKER_set=ubuntu-server-1404-x64 bundle exec rake beaker
