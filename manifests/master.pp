@@ -109,7 +109,7 @@ class puppet::master (
   $passenger_max_requests       = 10000,
   $passenger_stat_throttle_rate = 30,
   $serialization_format         = undef,
-  $serialization_package        = undef, 
+  $serialization_package        = undef,
   $webserver                    = $::puppet::params::default_webserver,
   $listen_address               = $::puppet::params::listen_address,
   $disable_ssl                  = $::puppet::params::disable_ssl,
@@ -160,7 +160,7 @@ class puppet::master (
       Anchor['puppet::master::begin'] ->
       class {'puppet::unicorn':
         certname               => $certname,
-        puppet_conf            => $puppet_conf,
+        puppet_conf            => $::puppet::params::puppet_conf,
         puppet_ssldir          => $puppet_ssldir,
         dns_alt_names          => $dns_alt_names,
         listen_address         => $listen_address,
