@@ -446,6 +446,10 @@ class puppet::agent(
             ensure    => 'latest',
             provider  => 'gem',
             require   => Package[$::puppet::params::ruby_dev, 'gcc'],
+          } ~>
+          exec{'cleanup_old_gems':
+            command     => '/usr/bin/gem cleanup msgpack',
+            refreshonly => true,
           }
         }
       }
