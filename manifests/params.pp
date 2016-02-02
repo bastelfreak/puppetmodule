@@ -23,6 +23,7 @@ class puppet::params {
   $manifest                         = '/etc/puppet/manifests/site.pp'
   $hiera_config                     = '/etc/puppet/hiera.yaml'
   $puppet_docroot                   = '/etc/puppet/rack/public/'
+  $puppet_proxy_port                = '8140'
   $puppet_passenger_port            = '8140'
   $puppet_server_port               = '8140'
   $puppet_agent_enabled             = true
@@ -31,6 +32,11 @@ class puppet::params {
   $puppetdb_strict_validation       = true
   $environments                     = 'config'
   $digest_algorithm                 = 'md5'
+  $listen_address                   = '*'
+  $disable_ssl                      = undef
+  $backup_upstream                  = []
+  $unicorn_package                  = undef
+  $unicorn_path                     = '/usr/local/bin/unicorn'
 
   # Only used when environments == directory
   $environmentpath                  = "${confdir}/environments"

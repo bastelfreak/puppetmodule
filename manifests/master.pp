@@ -76,6 +76,7 @@ class puppet::master (
   $puppet_ssldir              = $::puppet::params::puppet_ssldir,
   $puppet_docroot             = $::puppet::params::puppet_docroot,
   $puppet_vardir              = $::puppet::params::puppet_vardir,
+  $puppet_proxy_port          = $::puppet::params::puppet_proxy_port,
   $puppet_passenger_port      = $::puppet::params::puppet_passenger_port,
   $puppet_passenger_tempdir   = false,
   $puppet_passenger_cfg_addon = '',
@@ -90,6 +91,14 @@ class puppet::master (
   $dns_alt_names              = ['puppet'],
   $digest_algorithm           = $::puppet::params::digest_algorithm,
   $webserver                  = 'httpd',
+  $listen_address             = $::puppet::params::listen_address,
+  $disable_ssl                = $::puppet::params::disable_ssl,
+  $backup_upstream            = $::puppet::params::backup_upstream,
+  $unicorn_path               = $::puppet::params::unicorn_path,
+  $unicorn_package            = $::puppet::params::unicorn_package,
+  $disable_master             = false
+  $upstream                   = []
+  $backend_process_number     = $::processorcount
   $generate_ssl_certs         = true,
   $strict_variables           = undef,
   $puppetdb_version           = 'present',
@@ -130,21 +139,44 @@ class puppet::master (
       ensure         => $version,
     }
   }
-  Anchor['puppet::master::begin'] ->
-  class {'puppet::passenger':
-    puppet_passenger_port    => $puppet_passenger_port,
-    puppet_docroot           => $puppet_docroot,
-    apache_serveradmin       => $apache_serveradmin,
-    puppet_conf              => $::puppet::params::puppet_conf,
-    puppet_ssldir            => $puppet_ssldir,
-    certname                 => $certname,
-    conf_dir                 => $::puppet::params::confdir,
-    dns_alt_names            => join($dns_alt_names,','),
-    generate_ssl_certs       => $generate_ssl_certs,
-    puppet_passenger_tempdir => $puppet_passenger_tempdir,
-    config_addon             => $puppet_passenger_cfg_addon,
-  } ->
-  Anchor['puppet::master::end']
+  case $webserver {
+    nginx: {
+      Anchor['puppet::master::begin'] ->
+      class {'puppet::unicorn':
+        certname               => $certname,
+        puppet_conf            => $::puppet::params::puppet_conf,
+        puppet_ssldir          => $puppet_ssldir,
+        dns_alt_names          => join($dns_alt_names,','),
+        listen_address         => $listen_address,
+        puppet_proxy_port      => $puppet_proxy_port,
+        disable_ssl            => $disable_ssl,
+        backup_upstream        => $backup_upstream,
+        unicorn_package        => $unicorn_package,
+        unicorn_path           => $unicorn_path,
+        disable_master         => $disable_master,
+        upstream               => $upstream,
+        backend_process_number => $backend_process_number,
+      } ->
+      Anchor['puppet::master::end']
+    }
+    default: {
+      Anchor['puppet::master::begin'] ->
+      class {'puppet::passenger':
+        puppet_passenger_port    => $puppet_passenger_port,
+        puppet_docroot           => $puppet_docroot,
+        apache_serveradmin       => $apache_serveradmin,
+        puppet_conf              => $::puppet::params::puppet_conf,
+        puppet_ssldir            => $puppet_ssldir,
+        certname                 => $certname,
+        conf_dir                 => $::puppet::params::confdir,
+        dns_alt_names            => join($dns_alt_names,','),
+        generate_ssl_certs       => $generate_ssl_certs,
+        puppet_passenger_tempdir => $puppet_passenger_tempdir,
+        config_addon             => $puppet_passenger_cfg_addon,
+      } ->
+      Anchor['puppet::master::end']
+    }
+  }
 
   service { $puppet_master_service:
     ensure  => stopped,
@@ -189,7 +221,7 @@ class puppet::master (
     ensure  => directory,
     owner   => $::puppet::params::puppet_user,
     group   => $::puppet::params::puppet_group,
-    notify  => Service['httpd'],
+    notify  => Service[$webserver],
     require => Package[$puppet_master_package]
   }
 
@@ -198,7 +230,7 @@ class puppet::master (
     class { 'puppet::storeconfigs':
       dbserver                   => $storeconfigs_dbserver,
       dbport                     => $storeconfigs_dbport,
-      puppet_service             => Service['httpd'],
+      puppet_service             => Service[$webserver],
       puppet_confdir             => $::puppet::params::confdir,
       puppet_conf                => $::puppet::params::puppet_conf,
       puppet_master_package      => $puppet_master_package,
