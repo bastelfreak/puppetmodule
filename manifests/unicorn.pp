@@ -45,7 +45,8 @@ class puppet::unicorn (
   $upstream,
   $backend_process_number,
 ) inherits puppet::params {
-  class { '::nginx':
+  include nginx
+  class { 'nginx::config':
     worker_processes => $::processorcount,
     multi_accept     => 'on',
   }
