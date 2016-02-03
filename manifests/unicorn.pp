@@ -46,10 +46,6 @@ class puppet::unicorn (
   $backend_process_number,
 ) inherits puppet::params {
   include nginx
-  class { 'nginx::config':
-    worker_processes => $::processorcount,
-    multi_accept     => 'on',
-  }
   # if this is provided we install the package from the repo, otherwise we build unicorn from scratch
   if $unicorn_package {
     package {$unicorn_package:
