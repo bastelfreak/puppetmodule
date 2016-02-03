@@ -96,9 +96,9 @@ class puppet::master (
   $backup_upstream            = $::puppet::params::backup_upstream,
   $unicorn_path               = $::puppet::params::unicorn_path,
   $unicorn_package            = $::puppet::params::unicorn_package,
-  $disable_master             = false
-  $upstream                   = []
-  $backend_process_number     = $::processorcount
+  $disable_master             = false,
+  $upstream                   = [],
+  $backend_process_number     = $::processorcount,
   $generate_ssl_certs         = true,
   $strict_variables           = undef,
   $puppetdb_version           = 'present',
