@@ -44,6 +44,8 @@ class puppet::unicorn (
   $disable_master,
   $upstream,
   $backend_process_number,
+  $unicorn_ensure,
+  $rack_ensure,
 ) inherits puppet::params {
   include nginx
   # if this is provided we install the package from the repo, otherwise we build unicorn from scratch
@@ -63,8 +65,13 @@ class puppet::unicorn (
         ensure  => latest,
       }
     }
-    package {['unicorn', 'rack']:
-      ensure   => latest,
+    package {'unicorn':
+      ensure   => $unicorn_ensure,
+      provider => gem,
+      require  => Package[$::puppet::params::ruby_dev, 'gcc'],
+    }
+    package {'rack':
+      ensure   => $rack_ensure,
       provider => gem,
       require  => Package[$::puppet::params::ruby_dev, 'gcc'],
     }

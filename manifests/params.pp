@@ -44,6 +44,8 @@ class puppet::params {
   $disable_master                   = false
   $upstream                         = []
   $backend_process_number           = $::processorcount
+  $unicorn_ensure                   = latest
+  $rack_ensure                      = latest
 
   # Only used when environments == directory
   $environmentpath                  = "${confdir}/environments"
