@@ -5,6 +5,8 @@ module nginx 1.2;
   type init_t;
   type var_t;
   class process setrlimit;
+  class dir setattr;
+  class file { read getattr unlink };
   class sock_file write;
   class dir search;
   class unix_stream_socket connectto;
